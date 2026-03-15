@@ -1,27 +1,63 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+*.pnp
+.yarn/install-state.gz
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Testing
+coverage/
+.nyc_output/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
 
-.config/
-!.env
+# Docker
+.docker/
+docker/certs/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Build outputs
+dist/
+.turbo/
+
+# Development
+.vercel/
+.netlify/

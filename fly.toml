@@ -1,0 +1,70 @@
+app = "apphostfast"
+primary_region = "ord"
+
+[build]
+builder = "docker"
+dockerfile = "Dockerfile"
+
+[env]
+NODE_ENV = "production"
+
+[http_service]
+internal_port = 3000
+force_https = true
+auto_stop_machines = true
+auto_start_machines = true
+min_machines_running = 1
+
+[[http_service.checks]]
+grace_period = "30s"
+interval = "15s"
+method = "GET"
+path = "/api/health"
+protocol = "http"
+timeout = "5s"
+
+[http_service.concurrency]
+hard_limit = 25
+soft_limit = 20
+
+[env]
+# Generated at: https://railway.app dashboard
+DATABASE_URL = ""
+REDIS_URL = ""
+GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_SECRET = ""
+JWT_SECRET = ""
+
+[deploy]
+release_command = "npx prisma db push"
+
+[[services]]
+internal_port = 5432
+protocol = "tcp"
+processes = ["app"]
+
+[[services.ports]]
+handlers = ["pg_tls"]
+port = 5432
+
+[[services.tcp_checks]]
+grace_period = "1s"
+interval = "10s"
+timeout = "5s"
+
+[[services]]
+internal_port = 6379
+protocol = "tcp"
+processes = ["app"]
+
+[[services.ports]]
+handlers = ["redis"]
+port = 6379
+
+[[services.tcp_checks]]
+grace_period = "1s"
+interval = "10s"
+timeout = "5s"
+
+[checks]
+release_cmd = "curl -f http://localhost:3000/api/health"

@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 10 40% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 10 40% 3.9%;
+    --primary: 220 90% 56%; /* Vibrant blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 80% 56%; /* Purple */
+    --secondary-foreground: 0 0% 100%;
+    --accent: 40 90% 50%; /* Orange/gold */
+    --accent-foreground: 0 0% 100%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 220 90% 56%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 10 20% 9%;
+    --foreground: 0 0% 98%;
+    --card: 10 20% 14%;
+    --card-foreground: 0 0% 98%;
+    --primary: 220 90% 56%;
+    --primary-foreground: 10 20% 9%;
+    --secondary: 260 80% 56%;
+    --secondary-foreground: 10 20% 9%;
+    --accent: 40 90% 50%;
+    --accent-foreground: 10 20% 9%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 220 90% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer components {
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent;
+  }
+
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 rounded-lg font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 rounded-lg font-semibold border border-border hover:bg-muted transition-colors;
+  }
+
+  .card-glass {
+    @apply backdrop-blur-md bg-card/50 border border-border rounded-lg;
+  }
+
+  .badge-primary {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary;
+  }
+}

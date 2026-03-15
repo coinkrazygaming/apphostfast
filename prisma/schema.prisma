@@ -1,0 +1,211 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// User model
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  username  String?    @unique
+  password  String?
+  fullName  String?
+  avatar    String?
+  
+  // GitHub OAuth
+  githubId  String?    @unique
+  githubToken String?
+  
+  // Account info
+  company   String?
+  plan      String     @default("free") // free, business, startup
+  
+  // Relations
+  apps      App[]
+  deployments Deployment[]
+  domains   Domain[]
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// App model (deployed application)
+model App {
+  id        String     @id @default(cuid())
+  name      String
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Deployment info
+  framework String     // next.js, express, php, wordpress, static
+  status    String     @default("inactive") // active, inactive, deploying, error
+  
+  // URLs and domains
+  subdomain String     @unique // my-app.apphostfast.dev
+  customDomain String?
+  
+  // Repository
+  repositoryUrl String?
+  repositoryBranch String @default("main")
+  
+  // Configuration
+  buildCommand String?
+  startCommand String?
+  envVars   String?    // Encrypted JSON
+  
+  // Docker/Container
+  containerId String?
+  containerPort Int @default(3000)
+  dockerImage String?
+  
+  // Resources
+  cpuLimit  String @default("500m")
+  memoryLimit String @default("512Mi")
+  
+  // Database
+  hasDatabase Boolean @default(false)
+  databaseName String?
+  
+  // SSL
+  sslCertificate String?
+  sslExpiresAt DateTime?
+  
+  // Stats
+  lastDeployAt DateTime?
+  deployCount Int @default(0)
+  
+  // Relations
+  deployments Deployment[]
+  logs        Log[]
+  domain      Domain?
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([status])
+}
+
+// Deployment model (deployment history)
+model Deployment {
+  id        String     @id @default(cuid())
+  appId     String
+  app       App        @relation(fields: [appId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  status    String     @default("pending") // pending, building, deploying, success, failed
+  commitSha String
+  commitMessage String?
+  branch    String
+  
+  // Build info
+  buildStartedAt DateTime?
+  buildCompletedAt DateTime?
+  buildDuration Int?     // seconds
+  buildError String?
+  
+  // Logs
+  logs      String?    // Build and deployment logs
+  
+  // Triggered by
+  triggeredBy String?   // "webhook", "manual", "rollback"
+  
+  // URLs
+  previewUrl String?
+  productionUrl String?
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  
+  @@index([appId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// App logs (runtime logs)
+model Log {
+  id        String     @id @default(cuid())
+  appId     String
+  app       App        @relation(fields: [appId], references: [id], onDelete: Cascade)
+  
+  level     String     // info, warn, error, debug
+  message   String
+  source    String?    // app, system, deployment
+  
+  createdAt DateTime   @default(now())
+  
+  @@index([appId])
+  @@index([createdAt])
+  @@index([level])
+}
+
+// Custom domain model
+model Domain {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appId     String     @unique
+  app       App        @relation(fields: [appId], references: [id], onDelete: Cascade)
+  
+  domain    String     @unique
+  verified  Boolean    @default(false)
+  
+  // DNS records
+  dnsRecordType String  // CNAME, A
+  dnsRecordValue String
+  dnsVerified Boolean @default(false)
+  
+  // SSL
+  sslStatus String?   // pending, active, error
+  sslExpiresAt DateTime?
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  
+  @@index([userId])
+  @@index([verified])
+}
+
+// GitHub integration model
+model GitHubIntegration {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  
+  installationId String
+  appId     String
+  token     String     // Encrypted
+  
+  repositories String?  // Comma-separated list
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// Billing/Invoice model (future)
+model Invoice {
+  id        String     @id @default(cuid())
+  userId    String
+  
+  amount    Int        // cents
+  currency  String @default("USD")
+  period    String     // YYYY-MM
+  status    String     // pending, paid, failed
+  
+  paidAt    DateTime?
+  dueDate   DateTime
+  
+  createdAt DateTime   @default(now())
+  
+  @@index([userId])
+  @@index([status])
+}
