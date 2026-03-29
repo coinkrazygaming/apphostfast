@@ -1,16 +1,17 @@
 import { RequestHandler } from "express";
+import { query } from "../db/client";
 
-// In-memory app storage (in production, use a database)
-const apps: Map<string, any> = new Map();
-
-export const handleGetApps: RequestHandler = (req, res) => {
-  // In a real app, you would get the userId from the JWT token
-  // and filter apps by that user
-  const appList = Array.from(apps.values());
-  res.json({ apps: appList });
+export const handleGetApps: RequestHandler = async (req, res) => {
+  try {
+    const result = await query("SELECT * FROM apps ORDER BY created_at DESC");
+    res.json({ apps: result.rows });
+  } catch (error) {
+    console.error("Get apps error:", error);
+    res.status(500).json({ message: "Failed to fetch apps" });
+  }
 };
 
-export const handleCreateApp: RequestHandler = (req, res) => {
+export const handleCreateApp: RequestHandler = async (req, res) => {
   const { name, framework, repository, branch } = req.body;
 
   // Validation
@@ -19,117 +20,160 @@ export const handleCreateApp: RequestHandler = (req, res) => {
     return;
   }
 
-  // Create app
-  const appId = `app_${Date.now()}`;
-  const newApp = {
-    id: appId,
-    name,
-    framework,
-    repository,
-    branch: branch || "main",
-    url: `${name.toLowerCase().replace(/\s+/g, "-")}.apphostfast.io`,
-    status: "building",
-    createdAt: new Date().toISOString(),
-    deployments: 0,
-  };
+  try {
+    const appId = `app_${Date.now()}`;
+    const url = `${name.toLowerCase().replace(/\s+/g, "-")}.apphostfast.io`;
 
-  apps.set(appId, newApp);
+    await query(
+      `INSERT INTO apps (app_id, user_id, name, framework, repository, branch, url, status, deployments)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [appId, "default-user", name, framework, repository, branch || "main", url, "building", 0]
+    );
 
-  res.status(201).json({
-    message: "App created successfully",
-    app: newApp,
-  });
+    const newApp = {
+      app_id: appId,
+      name,
+      framework,
+      repository,
+      branch: branch || "main",
+      url,
+      status: "building",
+      deployments: 0,
+    };
+
+    res.status(201).json({
+      message: "App created successfully",
+      app: newApp,
+    });
+  } catch (error) {
+    console.error("Create app error:", error);
+    res.status(500).json({ message: "Failed to create app" });
+  }
 };
 
-export const handleGetApp: RequestHandler = (req, res) => {
+export const handleGetApp: RequestHandler = async (req, res) => {
   const { appId } = req.params;
 
-  const app = apps.get(appId);
-  if (!app) {
-    res.status(404).json({ message: "App not found" });
-    return;
-  }
+  try {
+    const result = await query("SELECT * FROM apps WHERE app_id = $1", [appId]);
 
-  res.json({ app });
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: "App not found" });
+      return;
+    }
+
+    res.json({ app: result.rows[0] });
+  } catch (error) {
+    console.error("Get app error:", error);
+    res.status(500).json({ message: "Failed to fetch app" });
+  }
 };
 
-export const handleUpdateApp: RequestHandler = (req, res) => {
+export const handleUpdateApp: RequestHandler = async (req, res) => {
   const { appId } = req.params;
   const updates = req.body;
 
-  const app = apps.get(appId);
-  if (!app) {
-    res.status(404).json({ message: "App not found" });
-    return;
+  try {
+    // Check if app exists
+    const appResult = await query("SELECT * FROM apps WHERE app_id = $1", [appId]);
+    if (appResult.rows.length === 0) {
+      res.status(404).json({ message: "App not found" });
+      return;
+    }
+
+    // Build update query dynamically
+    const columns = Object.keys(updates);
+    const values = Object.values(updates);
+    const setClause = columns.map((col, idx) => `${col} = $${idx + 1}`).join(", ");
+
+    const result = await query(
+      `UPDATE apps SET ${setClause}, created_at = created_at WHERE app_id = $${columns.length + 1} RETURNING *`,
+      [...values, appId]
+    );
+
+    res.json({
+      message: "App updated successfully",
+      app: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update app error:", error);
+    res.status(500).json({ message: "Failed to update app" });
   }
-
-  // Update app
-  const updatedApp = { ...app, ...updates };
-  apps.set(appId, updatedApp);
-
-  res.json({
-    message: "App updated successfully",
-    app: updatedApp,
-  });
 };
 
-export const handleDeleteApp: RequestHandler = (req, res) => {
+export const handleDeleteApp: RequestHandler = async (req, res) => {
   const { appId } = req.params;
 
-  if (!apps.has(appId)) {
-    res.status(404).json({ message: "App not found" });
-    return;
-  }
+  try {
+    const result = await query("DELETE FROM apps WHERE app_id = $1 RETURNING *", [appId]);
 
-  apps.delete(appId);
-  res.json({ message: "App deleted successfully" });
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: "App not found" });
+      return;
+    }
+
+    res.json({ message: "App deleted successfully" });
+  } catch (error) {
+    console.error("Delete app error:", error);
+    res.status(500).json({ message: "Failed to delete app" });
+  }
 };
 
-export const handleGetDeployments: RequestHandler = (req, res) => {
+export const handleGetDeployments: RequestHandler = async (req, res) => {
   const { appId } = req.params;
 
-  const app = apps.get(appId);
-  if (!app) {
-    res.status(404).json({ message: "App not found" });
-    return;
+  try {
+    // Check if app exists
+    const appResult = await query("SELECT * FROM apps WHERE app_id = $1", [appId]);
+    if (appResult.rows.length === 0) {
+      res.status(404).json({ message: "App not found" });
+      return;
+    }
+
+    const result = await query(
+      "SELECT * FROM deployments WHERE app_id = $1 ORDER BY created_at DESC",
+      [appId]
+    );
+
+    res.json({ deployments: result.rows });
+  } catch (error) {
+    console.error("Get deployments error:", error);
+    res.status(500).json({ message: "Failed to fetch deployments" });
   }
-
-  // Return mock deployments
-  const deployments = [
-    {
-      id: `deploy_1`,
-      status: "success",
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      commit: "a1b2c3d",
-      message: "Initial deployment",
-    },
-    {
-      id: `deploy_2`,
-      status: "success",
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      commit: "e4f5g6h",
-      message: "Feature update",
-    },
-  ];
-
-  res.json({ deployments });
 };
 
-export const handleTriggerDeploy: RequestHandler = (req, res) => {
+export const handleTriggerDeploy: RequestHandler = async (req, res) => {
   const { appId } = req.params;
 
-  const app = apps.get(appId);
-  if (!app) {
-    res.status(404).json({ message: "App not found" });
-    return;
+  try {
+    // Check if app exists
+    const appResult = await query("SELECT * FROM apps WHERE app_id = $1", [appId]);
+    if (appResult.rows.length === 0) {
+      res.status(404).json({ message: "App not found" });
+      return;
+    }
+
+    // Create deployment record
+    const deployId = `deploy_${Date.now()}`;
+    await query(
+      `INSERT INTO deployments (deploy_id, app_id, status, commit, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [deployId, appId, "building", null, "Manual deployment triggered"]
+    );
+
+    // Update app status and increment deployments
+    const updateResult = await query(
+      `UPDATE apps SET status = $1, deployments = deployments + 1
+       WHERE app_id = $2 RETURNING *`,
+      ["building", appId]
+    );
+
+    res.json({
+      message: "Deployment triggered",
+      app: updateResult.rows[0],
+    });
+  } catch (error) {
+    console.error("Trigger deploy error:", error);
+    res.status(500).json({ message: "Failed to trigger deployment" });
   }
-
-  // Update app status to building
-  const updatedApp = { ...app, status: "building", deployments: app.deployments + 1 };
-  apps.set(appId, updatedApp);
-
-  res.json({
-    message: "Deployment triggered",
-    app: updatedApp,
-  });
 };

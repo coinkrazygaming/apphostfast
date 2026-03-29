@@ -1,9 +1,7 @@
 import { RequestHandler } from "express";
+import { query } from "../db/client";
 
-// Simple in-memory user storage (in production, use a database)
-const users: Map<string, { id: string; name: string; email: string; password: string }> = new Map();
-
-// Simple token generation (in production, use JWT)
+// Simple token generation (in production, use JWT with proper secrets)
 function generateToken(userId: string): string {
   return Buffer.from(`${userId}:${Date.now()}`).toString("base64");
 }
@@ -18,7 +16,7 @@ function verifyToken(token: string): string | null {
   }
 }
 
-export const handleSignup: RequestHandler = (req, res) => {
+export const handleSignup: RequestHandler = async (req, res) => {
   const { name, email, password } = req.body;
 
   // Validation
@@ -27,29 +25,36 @@ export const handleSignup: RequestHandler = (req, res) => {
     return;
   }
 
-  // Check if user exists
-  for (const user of users.values()) {
-    if (user.email === email) {
+  try {
+    // Check if user exists
+    const existingUser = await query("SELECT * FROM users WHERE email = $1", [email]);
+    if (existingUser.rows.length > 0) {
       res.status(400).json({ message: "Email already registered" });
       return;
     }
+
+    // Create user
+    const userId = `user_${Date.now()}`;
+    await query(
+      "INSERT INTO users (user_id, name, email, password) VALUES ($1, $2, $3, $4)",
+      [userId, name, email, password]
+    );
+
+    // Generate token
+    const token = generateToken(userId);
+
+    res.status(201).json({
+      message: "User created successfully",
+      token,
+      user: { id: userId, name, email },
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ message: "An error occurred during signup" });
   }
-
-  // Create user
-  const userId = `user_${Date.now()}`;
-  users.set(userId, { id: userId, name, email, password });
-
-  // Generate token
-  const token = generateToken(userId);
-
-  res.status(201).json({
-    message: "User created successfully",
-    token,
-    user: { id: userId, name, email },
-  });
 };
 
-export const handleLogin: RequestHandler = (req, res) => {
+export const handleLogin: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
 
   // Validation
@@ -58,33 +63,30 @@ export const handleLogin: RequestHandler = (req, res) => {
     return;
   }
 
-  // Find user
-  let user = null;
-  let userId = "";
-  for (const [id, u] of users.entries()) {
-    if (u.email === email) {
-      user = u;
-      userId = id;
-      break;
+  try {
+    // Find user
+    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+
+    if (result.rows.length === 0 || result.rows[0].password !== password) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
     }
+
+    const user = result.rows[0];
+    const token = generateToken(user.user_id);
+
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      user: { id: user.user_id, name: user.name, email: user.email },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "An error occurred during login" });
   }
-
-  if (!user || user.password !== password) {
-    res.status(401).json({ message: "Invalid email or password" });
-    return;
-  }
-
-  // Generate token
-  const token = generateToken(userId);
-
-  res.status(200).json({
-    message: "Login successful",
-    token,
-    user: { id: userId, name: user.name, email: user.email },
-  });
 };
 
-export const handleGetProfile: RequestHandler = (req, res) => {
+export const handleGetProfile: RequestHandler = async (req, res) => {
   const token = req.headers.authorization?.replace("Bearer ", "");
 
   if (!token) {
@@ -98,13 +100,22 @@ export const handleGetProfile: RequestHandler = (req, res) => {
     return;
   }
 
-  const user = users.get(userId);
-  if (!user) {
-    res.status(404).json({ message: "User not found" });
-    return;
-  }
+  try {
+    const result = await query("SELECT user_id, name, email FROM users WHERE user_id = $1", [
+      userId,
+    ]);
 
-  res.status(200).json({
-    user: { id: user.id, name: user.name, email: user.email },
-  });
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    const user = result.rows[0];
+    res.status(200).json({
+      user: { id: user.user_id, name: user.name, email: user.email },
+    });
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({ message: "An error occurred" });
+  }
 };
