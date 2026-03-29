@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { isAdmin } from './lib/auth';
 
 const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || 'your-secret-key-min-32-characters-long'
@@ -8,15 +9,23 @@ const secret = new TextEncoder().encode(
 // Routes that require authentication
 const protectedRoutes = ['/dashboard', '/api/apps', '/api/deploy'];
 
+// Routes that require admin role
+const adminRoutes = ['/api/admin'];
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Check if route is protected
-  const isProtected = protectedRoutes.some((route) =>
+  // Check if route requires admin
+  const requiresAdmin = adminRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
-  if (isProtected) {
+  // Check if route requires authentication
+  const requiresAuth = protectedRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  if (requiresAuth || requiresAdmin) {
     const token = request.cookies.get('auth_token')?.value;
 
     // If no token, redirect to login
@@ -25,14 +34,27 @@ export async function middleware(request: NextRequest) {
     }
 
     // Verify token
+    let payload;
     try {
-      await jwtVerify(token, secret);
-      // Token is valid, allow request
-      return NextResponse.next();
+      const verified = await jwtVerify(token, secret);
+      payload = verified.payload;
     } catch (error) {
       // Invalid token, redirect to login
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
+
+    // Check admin access if required
+    if (requiresAdmin) {
+      const userIsAdmin = await isAdmin(payload.userId as string);
+      if (!userIsAdmin) {
+        return NextResponse.json(
+          { error: 'Admin access required' },
+          { status: 403 }
+        );
+      }
+    }
+
+    return NextResponse.next();
   }
 
   return NextResponse.next();

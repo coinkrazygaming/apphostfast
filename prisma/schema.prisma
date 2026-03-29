@@ -26,6 +26,7 @@ model User {
   // Account info
   company   String?
   plan      String     @default("free") // free, business, startup
+  isAdmin   Boolean    @default(false)
   
   // Relations
   apps      App[]

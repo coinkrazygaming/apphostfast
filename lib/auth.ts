@@ -1,5 +1,6 @@
 import { jwtVerify, SignJWT } from 'jose';
 import { cookies } from 'next/headers';
+import prisma from './prisma';
 
 const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || 'your-secret-key-min-32-characters-long'
@@ -45,6 +46,22 @@ export async function getSession(): Promise<JWTPayload | null> {
   if (!token) return null;
 
   return verifyToken(token);
+}
+
+/**
+ * Check if user is admin
+ */
+export async function isAdmin(userId: string): Promise<boolean> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true },
+    });
+    return user?.isAdmin ?? false;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
 }
 
 /**
