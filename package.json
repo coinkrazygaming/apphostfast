@@ -22,7 +22,7 @@
     "@hookform/resolvers": "^3.3.4",
     "react-hook-form": "^7.51.0",
     "zod": "^3.25.8",
-    "next-auth": "^5.0.0",
+    "next-auth": "^4.24.13",
     "axios": "^1.6.7",
     "bullmq": "^5.7.1",
     "redis": "^4.6.13",
