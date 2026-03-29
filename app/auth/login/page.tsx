@@ -28,21 +28,15 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
         credentials: 'include',
+        redirect: 'follow',
       });
 
       if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          // Redirect to dashboard
-          window.location.href = '/dashboard';
-        }
+        // Successful login - redirect to dashboard
+        window.location.href = '/dashboard';
       } else {
-        try {
-          const data = await response.json();
-          setError(data.error || 'Failed to sign in');
-        } catch {
-          setError('Failed to sign in');
-        }
+        const data = await response.json();
+        setError(data.error || 'Failed to sign in');
       }
     } catch (err) {
       console.error('Login error:', err);
