@@ -27,16 +27,25 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
 
       if (response.ok) {
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
-      } else {
         const data = await response.json();
-        setError(data.error || 'Failed to sign in');
+        if (data.success) {
+          // Redirect to dashboard
+          window.location.href = '/dashboard';
+        }
+      } else {
+        try {
+          const data = await response.json();
+          setError(data.error || 'Failed to sign in');
+        } catch {
+          setError('Failed to sign in');
+        }
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);

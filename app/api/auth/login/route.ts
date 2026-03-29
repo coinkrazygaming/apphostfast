@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
       email: user.email,
     });
 
-    // Set cookie and redirect to dashboard
-    const response = NextResponse.redirect(new URL('/dashboard', request.url));
+    // Create response
+    const response = NextResponse.json({ success: true });
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
