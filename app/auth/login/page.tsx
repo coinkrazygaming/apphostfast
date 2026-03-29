@@ -9,19 +9,38 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleGitHubLogin = async () => {
     setLoading(true);
-    // In production, this would redirect to GitHub OAuth
-    window.location.href = '/api/auth/github';
+    setError('');
+    window.location.href = '/api/auth/github/start';
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // In production, this would send to API
-    console.log('Email login:', { email, password });
-    setTimeout(() => setLoading(false), 1000);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.ok) {
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to sign in');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,6 +61,12 @@ export default function LoginPage() {
             <p className="text-muted-foreground mb-8">
               Sign in to your AppHostFast account
             </p>
+
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                {error}
+              </div>
+            )}
 
             {/* GitHub OAuth */}
             <Button

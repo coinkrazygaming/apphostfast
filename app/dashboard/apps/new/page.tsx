@@ -2,21 +2,77 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Github, Upload, Zap, ArrowLeft } from 'lucide-react';
+import { Github, Upload, Zap, ArrowLeft, Loader } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function NewAppPage() {
+  const router = useRouter();
   const [step, setStep] = useState<'method' | 'configure'>('method');
   const [method, setMethod] = useState<'github' | 'upload' | null>(null);
+  const [appName, setAppName] = useState('');
+  const [framework, setFramework] = useState('');
+  const [envVars, setEnvVars] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const frameworks = [
-    { name: 'Node.js + Express', icon: '⚙️', color: 'bg-green-100' },
-    { name: 'Next.js', icon: '▲', color: 'bg-black' },
-    { name: 'React', icon: '⚛️', color: 'bg-blue-100' },
-    { name: 'Vue.js', icon: '💚', color: 'bg-green-600' },
-    { name: 'PHP', icon: '🐘', color: 'bg-purple-100' },
-    { name: 'WordPress', icon: 'W', color: 'bg-blue-600' },
+    { name: 'Node.js + Express', id: 'express', icon: '⚙️', color: 'bg-green-100' },
+    { name: 'Next.js', id: 'next.js', icon: '▲', color: 'bg-black' },
+    { name: 'React', id: 'react', icon: '⚛️', color: 'bg-blue-100' },
+    { name: 'Vue.js', id: 'vue.js', icon: '💚', color: 'bg-green-600' },
+    { name: 'PHP', id: 'php', icon: '🐘', color: 'bg-purple-100' },
+    { name: 'WordPress', id: 'wordpress', icon: 'W', color: 'bg-blue-600' },
   ];
+
+  const handleDeploy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (!appName || !framework) {
+      setError('Please provide an app name and select a framework');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Parse environment variables
+      const envVarsObj = envVars
+        ? Object.fromEntries(
+            envVars.split('\n').map((line) => {
+              const [key, value] = line.split('=');
+              return [key, value];
+            })
+          )
+        : {};
+
+      const response = await fetch('/api/apps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: appName,
+          framework,
+          envVars: envVarsObj,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to create app');
+        return;
+      }
+
+      const app = await response.json();
+      // Redirect to app details page
+      router.push(`/dashboard/apps/${app.id}`);
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl">
@@ -90,6 +146,12 @@ export default function NewAppPage() {
 
       {step === 'configure' && method && (
         <div className="space-y-8">
+          {error && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
           {method === 'github' && (
             <>
               <div className="p-6 rounded-xl border border-border bg-card">
@@ -125,20 +187,26 @@ export default function NewAppPage() {
               We'll automatically detect your framework, but you can choose here
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {frameworks.map((framework, i) => (
+              {frameworks.map((fw, i) => (
                 <button
                   key={i}
-                  className="p-4 rounded-xl border border-border hover:border-primary transition-all hover:bg-muted text-center"
+                  type="button"
+                  onClick={() => setFramework(fw.id)}
+                  className={`p-4 rounded-xl border transition-all text-center ${
+                    framework === fw.id
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary hover:bg-muted'
+                  }`}
                 >
-                  <p className="text-3xl mb-2">{framework.icon}</p>
-                  <p className="font-semibold text-sm">{framework.name}</p>
+                  <p className="text-3xl mb-2">{fw.icon}</p>
+                  <p className="font-semibold text-sm">{fw.name}</p>
                 </button>
               ))}
             </div>
           </div>
 
           {/* App Configuration */}
-          <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <form onSubmit={handleDeploy} className="p-6 rounded-xl border border-border bg-card space-y-4">
             <h2 className="text-xl font-bold">App Configuration</h2>
 
             <div>
@@ -146,7 +214,10 @@ export default function NewAppPage() {
               <input
                 type="text"
                 placeholder="my-awesome-app"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                required
               />
             </div>
 
@@ -155,7 +226,9 @@ export default function NewAppPage() {
                 Environment Variables (Optional)
               </label>
               <textarea
-                placeholder="DATABASE_URL=..." 
+                placeholder="DATABASE_URL=..."
+                value={envVars}
+                onChange={(e) => setEnvVars(e.target.value)}
                 rows={4}
                 className="w-full px-4 py-2 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
               />
@@ -166,20 +239,31 @@ export default function NewAppPage() {
 
             <div className="flex gap-4 pt-4">
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => {
                   setStep('method');
                   setMethod(null);
+                  setError('');
                 }}
               >
                 Back
               </Button>
-              <Button className="btn-primary gap-2 flex-1">
-                <Zap className="w-5 h-5" />
-                Deploy App
+              <Button type="submit" disabled={loading} className="btn-primary gap-2 flex-1">
+                {loading ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    Deploying...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5" />
+                    Deploy App
+                  </>
+                )}
               </Button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>

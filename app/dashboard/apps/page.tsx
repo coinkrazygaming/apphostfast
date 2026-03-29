@@ -8,45 +8,64 @@ import {
   Trash2,
   Settings,
   Plus,
+  Code2,
+  Loader,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+interface App {
+  id: string;
+  name: string;
+  framework: string;
+  status: string;
+  subdomain: string;
+  customDomain: string | null;
+  lastDeploy: string | null;
+  deployCount: number;
+}
 
 export default function AppsPage() {
-  const [apps] = useState([
-    {
-      id: 1,
-      name: 'portfolio-v2',
-      framework: 'Next.js',
-      status: 'active',
-      url: 'portfolio-v2.apphostfast.dev',
-      domain: 'myportfolio.com',
-      lastDeploy: '2 minutes ago',
-      cpu: 12,
-      memory: 45,
-    },
-    {
-      id: 2,
-      name: 'api-server',
-      framework: 'Node.js / Express',
-      status: 'active',
-      url: 'api-server.apphostfast.dev',
-      domain: null,
-      lastDeploy: '1 hour ago',
-      cpu: 8,
-      memory: 32,
-    },
-    {
-      id: 3,
-      name: 'blog-site',
-      framework: 'React',
-      status: 'inactive',
-      url: 'blog-site.apphostfast.dev',
-      domain: 'myblog.com',
-      lastDeploy: '3 hours ago',
-      cpu: 0,
-      memory: 0,
-    },
-  ]);
+  const [apps, setApps] = useState<App[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchApps = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/apps');
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            window.location.href = '/auth/login';
+            return;
+          }
+          throw new Error('Failed to fetch apps');
+        }
+
+        const data = await response.json();
+        setApps(data);
+      } catch (err) {
+        setError('Failed to load apps');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApps();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading apps...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -65,6 +84,12 @@ export default function AppsPage() {
           </Button>
         </Link>
       </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
       {/* Apps Grid */}
       {apps.length === 0 ? (
@@ -114,55 +139,28 @@ export default function AppsPage() {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-4 gap-4 mb-4 pb-4 border-b border-border">
+              <div className="grid md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-border">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">URL</p>
                   <a
-                    href={`https://${app.url}`}
+                    href={`https://${app.subdomain}.apphostfast.dev`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm font-semibold text-primary hover:underline flex items-center gap-1"
+                    className="text-sm font-semibold text-primary hover:underline flex items-center gap-1 break-all"
                   >
-                    {app.url}
-                    <ExternalLink className="w-4 h-4" />
+                    {app.subdomain}.apphostfast.dev
+                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
                   </a>
                 </div>
-                {app.domain && (
+                {app.customDomain && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Domain</p>
-                    <p className="text-sm font-semibold">{app.domain}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Custom Domain</p>
+                    <p className="text-sm font-semibold">{app.customDomain}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Last Deploy</p>
-                  <p className="text-sm font-semibold">{app.lastDeploy}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">CPU Usage</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary"
-                        style={{ width: `${app.cpu}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-semibold">{app.cpu}%</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Memory</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-secondary"
-                        style={{ width: `${app.memory}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-semibold">{app.memory}%</span>
-                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">Deployments</p>
+                  <p className="text-sm font-semibold">{app.deployCount}</p>
                 </div>
               </div>
             </div>
@@ -172,5 +170,3 @@ export default function AppsPage() {
     </div>
   );
 }
-
-import { Code2 } from 'lucide-react';

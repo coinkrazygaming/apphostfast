@@ -8,20 +8,46 @@ import { useState } from 'react';
 export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleGitHubSignUp = async () => {
     setLoading(true);
-    // In production, this would redirect to GitHub OAuth
-    window.location.href = '/api/auth/github';
+    setError('');
+    window.location.href = '/api/auth/github/start';
   };
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // In production, this would send to API
-    console.log('Email signup:', { email, password });
-    setTimeout(() => setLoading(false), 1000);
+    setError('');
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName }),
+      });
+
+      if (response.ok) {
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to create account');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,6 +68,12 @@ export default function SignUpPage() {
             <p className="text-muted-foreground mb-8">
               Join thousands of developers deploying apps at lightning speed
             </p>
+
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                {error}
+              </div>
+            )}
 
             {/* GitHub OAuth */}
             <Button
@@ -66,6 +98,17 @@ export default function SignUpPage() {
 
             {/* Email Form */}
             <form onSubmit={handleEmailSignUp} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Full name</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="John Doe"
+                  className="w-full px-4 py-2 rounded-lg border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium mb-2">Email address</label>
                 <input
