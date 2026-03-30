@@ -28,20 +28,26 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
         credentials: 'include',
-        redirect: 'follow',
       });
 
-      if (response.ok) {
-        // Successful login - redirect to dashboard
-        window.location.href = '/dashboard';
-      } else {
+      if (!response.ok) {
         const data = await response.json();
         setError(data.error || 'Failed to sign in');
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Successfully logged in, redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        setError('Login failed');
+        setLoading(false);
       }
     } catch (err) {
       console.error('Login error:', err);
       setError('An error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

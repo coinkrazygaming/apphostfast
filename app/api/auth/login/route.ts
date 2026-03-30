@@ -52,8 +52,12 @@ export async function POST(request: NextRequest) {
       email: user.email,
     });
 
-    // Redirect to dashboard
-    const response = NextResponse.redirect(new URL('/dashboard', request.url));
+    // Create response with success flag
+    const response = NextResponse.json({
+      success: true,
+      userId: user.id,
+      email: user.email
+    });
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
